@@ -1,0 +1,43 @@
+# settings.yaml — The Warden
+# Central configuration file for all modules.
+# Edit these values to tune detection sensitivity and ban behavior.
+
+sniffer:
+  # Network interface to monitor.
+  # Use "any" to sniff both lo and eth-icu (recommended for this testbed).
+  interface: "any"
+
+engine:
+  # Packets per second from a single IP that triggers an alert.
+  # Normal ICU sensors send 1-2 PPS. Attackers send 50+ PPS.
+  # Set conservatively high enough to avoid false positives.
+  threshold_pps: 20.0
+
+  # Sliding window size in seconds for PPS calculation.
+  # A larger window smooths out bursts but slows detection.
+  window_seconds: 5.0
+
+  # Minimum seconds between repeated alerts for the same IP.
+  # Prevents alert storms during a sustained attack.
+  cooldown_seconds: 10.0
+
+  # IPs that will NEVER be flagged or banned.
+  # Always include the broker IP and the Warden host itself.
+  whitelist:
+    - "192.168.10.1"    # MQTT broker / CoAP server
+
+mitigator:
+  # How long in seconds a banned IP stays blocked.
+  # After this period the janitor automatically lifts the ban.
+  ban_duration: 60.0
+
+  # Set to true to log bans but NOT actually call iptables.
+  # Use this for demos or when running without sudo.
+  dry_run: false
+
+  # Path to the persistent ban history log file.
+  log_path: "logs/bans.log"
+
+ui:
+  # How often the dashboard redraws in seconds.
+  refresh_rate: 1.0
