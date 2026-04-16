@@ -5,7 +5,6 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Flask](https://img.shields.io/badge/Dashboard-Flask-green)
 ![Platform](https://img.shields.io/badge/Platform-Linux-orange)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ---
 
@@ -316,9 +315,3 @@ This paper established the Bot-IoT dataset — the first publicly available IoT 
 **Zahan, H., Hasan, M., & Islam, M. (2023).** IoT-AD: A framework to detect anomalies among interconnected IoT devices. *Sensors, 23*(4), 2373. https://doi.org/10.3390/s23042373
 
 This paper advances the IoT security landscape by proposing anomaly detection across interconnected IoT device networks, extending the device-level detection approach of the IoT-Flock framework toward network-wide behavioral analysis. The Warden's per-IP sliding window engine reflects a compatible methodology — tracking behavioral rhythm deviations per device — while IoT-AD demonstrates how this approach can be extended to detect correlated multi-device anomalies. Together they represent the progression from single-device detection toward holistic IoT network defense.
-
----
-
-## License
-
-MIT License — see `LICENSE` for details.
