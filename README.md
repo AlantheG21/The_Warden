@@ -277,6 +277,10 @@ To test live iptables enforcement, run without `--dry-run` and verify bans with:
 sudo iptables -L INPUT -n --line-numbers
 ```
 
+If anything goes wrong while running without `--dry-run` use the following command:
+```bash
+sudo iptables -F INPUT
+```
 ---
 
 ## Project Structure
