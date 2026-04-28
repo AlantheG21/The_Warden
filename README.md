@@ -105,8 +105,8 @@ paho-mqtt>=2.0.0
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/the-warden.git
-cd the-warden
+git clone https://github.com/AlantheG21/The_Warden.git
+cd The_Warden
 ```
 
 ### 2. Install system dependencies
