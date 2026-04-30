@@ -282,6 +282,75 @@ If anything goes wrong while running without `--dry-run` use the following comma
 sudo iptables -F INPUT
 ```
 ---
+## Traffic Simulator Design & Implementation
+
+### Why a Custom Simulator Was Needed
+
+The original project proposal called for using **IoT-Flock** — the open-source IoT traffic generation tool introduced in Hussain et al. (2021) — to simulate the Smart ICU environment. IoT-Flock was an ideal fit on paper: it supports both MQTT and CoAP protocols, can generate both normal and malicious device traffic simultaneously, and was purpose-built for exactly this kind of IoT security research.
+
+However, IoT-Flock's pre-compiled binaries target the **x86_64 architecture**. The development environment for this project runs on an **aarch64/ARM system** (Apple Silicon MacBook running an Ubuntu Linux VM), making the binaries completely incompatible. Rather than compromise the project scope, a fully custom replacement — `simulator.py` — was built from scratch in Python to replicate IoT-Flock's core behavior natively.
+
+This decision preserved the full demonstration capability of the project while producing a simulator that is arguably more transparent and auditable than the original tool, since every behavior is explicitly coded rather than configured through a GUI.
+
+---
+
+### How the Simulator Works
+
+#### 1. Virtual IP Assignment via Linux Aliasing
+
+A core requirement of any realistic IoT traffic simulation is that each virtual device must appear to the network as a **distinct source IP address**. Without this, The Warden's per-IP detection engine would see all traffic coming from one address and could not meaningfully distinguish between sensors or identify individual attackers.
+
+The simulator solves this by using the Linux `iproute2` tool to assign virtual IP aliases to the `eth-icu` dummy network interface at startup:
+
+```bash
+sudo ip addr add 192.168.10.50/24 dev eth-icu   # Heart Monitor
+sudo ip addr add 192.168.10.51/24 dev eth-icu   # Oximeter
+sudo ip addr add 192.168.10.52/24 dev eth-icu   # Infusion Pump
+sudo ip addr add 192.168.10.53/24 dev eth-icu   # Glucose Monitor
+sudo ip addr add 192.168.10.90/24 dev eth-icu   # MQTT Flood Attacker
+sudo ip addr add 192.168.10.91/24 dev eth-icu   # CoAP Flood Attacker
+```
+
+Each device thread then **binds its socket to its assigned IP** before transmitting, ensuring packets carry the correct source address when they hit the wire and are captured by Scapy.
+
+#### 2. Normal Sensor Traffic
+
+Normal devices are modeled after the ICU sensor profiles described in Hussain et al. (2021), using realistic transmission rates drawn from the paper's time profile specifications:
+
+| Device | IP | Protocol | Rate |
+|---|---|---|---|
+| Heart Rate Monitor | 192.168.10.50 | MQTT | 1 msg/sec |
+| Oximeter (SpO2) | 192.168.10.51 | MQTT | 1 msg/2 sec |
+| Infusion Pump | 192.168.10.52 | CoAP | 1 msg/30 sec |
+| Glucose Monitor | 192.168.10.53 | CoAP | 1 msg/120 sec |
+
+Each normal device runs in its own Python thread, publishing realistic payload values (e.g., heart rate in the range 60–100 bpm, oxygen saturation 95–100%) to the MQTT broker at `192.168.10.1` or issuing CoAP PUT requests to the CoAP server. The low transmission rates — between 0.5 and 2 packets per second — deliberately stay well below The Warden's detection threshold of 20 PPS, establishing a clean baseline that the dashboard displays as **SECURE**.
+
+#### 3. Attack Traffic Generation
+
+Attack traffic is deliberately designed to mirror the two most relevant attack classes identified in the paper: **MQTT Publish Flood** and **CoAP flooding**.
+
+| Attacker | IP | Protocol | Rate |
+|---|---|---|---|
+| MQTT Flood Attacker | 192.168.10.90 | MQTT | ~50 msg/sec (burst) |
+| CoAP Flood Attacker | 192.168.10.91 | CoAP | ~20 msg/sec (burst) |
+
+The MQTT attacker hammers the broker with a continuous stream of PUBLISH packets at approximately 50 messages per second — well above the 20 PPS detection threshold. This replicates the MQTT Publish Flood attack described in the paper, where high-rate application-layer publishing exhausts broker resources and delays legitimate sensor data transmission. In a real ICU, this delay could mean a missed alert from a heart rate monitor or an oximeter.
+
+The CoAP attacker sends a sustained flood of GET/PUT requests at 20+ PPS, replicating the CoAP replay/flood pattern also described in the paper, where an attacker overwhelms the CoAP server with crafted or replayed requests.
+
+#### 4. Burst Pattern for Realistic Demonstration
+
+Rather than running attackers at a constant rate, the simulator implements a **randomized burst pattern** — attacking for a configurable number of seconds, pausing, then resuming. This serves two purposes:
+
+1. It produces a more realistic attack profile, since real-world DoS attacks are rarely perfectly uniform.
+2. It allows the demonstration to show The Warden's **full lifecycle**: detection → ban → cooldown expiry → resumed attack → re-detection. This cycle populates the event log on the dashboard and makes the self-healing behavior visible within the time constraints of a live demo.
+
+#### 5. Graceful Cleanup
+
+On exit, the simulator removes all virtual IP aliases it created, restoring the network interface to its original state. This prevents stale aliases from interfering with subsequent runs or leaving artifacts on the host system.
+
+---
 
 ## Project Structure
 
